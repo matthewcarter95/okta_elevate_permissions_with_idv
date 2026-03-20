@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero">
+    <h2>Welcome to Okta Permission Elevation</h2>
+    <p>This application demonstrates identity verification-based permission elevation using Okta.</p>
+    <div class="cta">
+        <a href="{{ url_for('login') }}" class="btn btn-primary">Login with Okta</a>
+    </div>
+</div>
+
+<div class="features">
+    <h3>How it works:</h3>
+    <ol>
+        <li>Login with your Okta account</li>
+        <li>View your profile attributes</li>
+        <li>Request elevated permissions</li>
+        <li>Complete identity verification if required</li>
+        <li>Access elevated features</li>
+    </ol>
+</div>
+{% endblock %}

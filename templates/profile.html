@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<script>
+    // Poll for elevation status changes
+    let pollInterval;
+
+    function checkElevationStatus() {
+        fetch('{{ url_for("check_elevation") }}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.elevated) {
+                    // User has been elevated - reload the page
+                    clearInterval(pollInterval);
+                    location.reload();
+                }
+            })
+            .catch(error => console.error('Error checking status:', error));
+    }
+
+    function elevatePermissions() {
+        const button = document.getElementById('elevate-btn');
+        const status = document.getElementById('elevation-status');
+
+        button.disabled = true;
+        button.textContent = 'Processing...';
+        status.textContent = 'Submitting elevation request...';
+        status.className = 'status-message info';
+
+        fetch('{{ url_for("elevate") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Elevation response:', data);
+
+            if (data.success && data.redirect_required) {
+                // User needs to go to Okta to complete IDV
+                status.textContent = 'Redirecting to Okta for identity verification...';
+                status.className = 'status-message info';
+
+                // Redirect after a brief delay
+                setTimeout(() => {
+                    window.location.href = data.redirect_url;
+                }, 1000);
+            } else if (data.success) {
+                status.textContent = 'Elevation request submitted. You may be prompted for identity verification. Waiting for completion...';
+                status.className = 'status-message info';
+
+                // Start polling for status changes
+                pollInterval = setInterval(checkElevationStatus, 3000);
+
+                // Stop polling after 5 minutes
+                setTimeout(() => {
+                    clearInterval(pollInterval);
+                    button.disabled = false;
+                    button.textContent = 'Elevate Permissions';
+                    status.textContent = 'Verification timeout. Please refresh the page and try again.';
+                    status.className = 'status-message warning';
+                }, 300000);
+            } else {
+                status.textContent = 'Error: ' + data.message;
+                status.className = 'status-message error';
+                button.disabled = false;
+                button.textContent = 'Elevate Permissions';
+            }
+        })
+        .catch(error => {
+            status.textContent = 'Error: ' + error.message;
+            status.className = 'status-message error';
+            button.disabled = false;
+            button.textContent = 'Elevate Permissions';
+        });
+    }
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <h2>User Profile</h2>
+
+    {% if elevated %}
+    <div class="elevated-badge">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <span>Elevated Permissions Active</span>
+    </div>
+    {% endif %}
+
+    <div class="profile-card">
+        <h3>Profile Information</h3>
+        <dl class="profile-details">
+            {% for key, value in profile.get('profile', {}).items() %}
+            <div class="profile-item">
+                <dt>{{ key }}</dt>
+                <dd>{{ value }}</dd>
+            </div>
+            {% endfor %}
+        </dl>
+    </div>
+
+    {% if not elevated %}
+    <div class="elevation-section">
+        <h3>Permission Elevation</h3>
+        <p>Click the button below to request elevated permissions. You may be required to complete identity verification.</p>
+        <button id="elevate-btn" class="btn btn-primary" onclick="elevatePermissions()">
+            Elevate Permissions
+        </button>
+        <div id="elevation-status" class="status-message"></div>
+    </div>
+    {% else %}
+    <div class="elevation-section">
+        <h3>Elevated Access</h3>
+        <p>You currently have elevated permissions. You can now access privileged features.</p>
+        <div class="elevated-features">
+            <h4>Available Features:</h4>
+            <ul>
+                <li>Access to sensitive data</li>
+                <li>Administrative functions</li>
+                <li>Advanced settings</li>
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
